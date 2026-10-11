@@ -45,8 +45,21 @@ pipeline {
         stage('Kubernetes Deploy') {
             steps {
                 sh '''
-                    kubectl set image deployment/employee-ui \
-                        employee-ui=${IMAGE_NAME}:${BUILD_NUMBER}
+                    if kubectl get deployment employee-ui >/dev/null 2>&1; then
+                        echo "Updating existing employee-ui deployment"
+
+                        kubectl set image deployment/employee-ui \
+                            employee-ui=${IMAGE_NAME}:${BUILD_NUMBER}
+                    else
+                        echo "Creating initial employee-ui deployment"
+
+                        kubectl create deployment employee-ui \
+                            --image=${IMAGE_NAME}:${BUILD_NUMBER}
+
+                        kubectl set env deployment/employee-ui \
+                            API_GATEWAY_HOST=api-gateway \
+                            API_GATEWAY_PORT=9090
+                    fi
 
                     kubectl rollout status deployment/employee-ui
                 '''
