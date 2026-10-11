@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = 'mindae/employee-ui'
+        PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:${env.PATH}"
+        IMAGE_NAME = "mindae/employee-ui"
     }
 
     stages {
@@ -14,21 +15,23 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                sh '''
-                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
-                '''
+                sh 'docker --version'
+                sh 'docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .'
             }
         }
 
         stage('Docker Login') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'docker-hub-token',
-                           variable: 'DOCKER_TOKEN')
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_TOKEN'
+                    )
                 ]) {
                     sh '''
-                        echo "$DOCKER_TOKEN" | docker login \
-                            -u mindae --password-stdin
+                        echo "$DOCKER_TOKEN" |
+                            docker login -u "$DOCKER_USER" --password-stdin
                     '''
                 }
             }
@@ -36,9 +39,14 @@ pipeline {
 
         stage('Docker Push') {
             steps {
-                sh '''
-                    docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-                '''
+                sh 'docker push ${IMAGE_NAME}:${BUILD_NUMBER}'
+            }
+        }
+
+        stage('Kubernetes Check') {
+            steps {
+                sh 'kubectl version --client'
+                sh 'kubectl get nodes'
             }
         }
 
